@@ -548,7 +548,7 @@ class FibGenBayerLV(FibGen):
         return self.lap, self.grad
     
 
-    def generate_fibers(self, params, correct_slerp=True):
+    def generate_fibers(self, params, correct_slerp=False):
         """Generate fiber directions using the Bayer method.
         
         Args:

@@ -32,7 +32,7 @@ if __name__ == "__main__":
     svmultiphysics_exec = "svmultiphysics "
 
     mesh_path = "example/ot/mesh-complete_testcase.mesh.vtu"
-    outdir = "example/ot/output_bayer_testcase_nochangesigns"
+    outdir = "example/ot/output_bayer_testcase_changesigns"
     surfaces_dir = 'example/ot/mesh-surfaces_HO_active_testcase'
                     
     # Parameters for the Bayer et al. method https://doi.org/10.1007/s10439-012-0593-5. 

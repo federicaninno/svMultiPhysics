@@ -16,7 +16,7 @@ import argparse
 import os
 import pyvista as pv
 from src.LaplaceSolver import LaplaceSolver
-from src.FibGen import FibGenBayer
+from src.FibGen import FibGenBayerLV
 from src.SurfaceNames import SurfaceName
 from src.surface_utils import generate_epi_apex
 from time import time
@@ -32,7 +32,7 @@ if __name__ == "__main__":
     svmultiphysics_exec = "svmultiphysics "
 
     mesh_path = "example/ot/mesh-complete_testcase.mesh.vtu"
-    outdir = "example/ot/output_bayer_testcase_repeatlv"
+    outdir = "example/ot/output_bayer_testcase_nochangesigns"
     surfaces_dir = 'example/ot/mesh-surfaces_HO_active_testcase'
                     
     # Parameters for the Bayer et al. method https://doi.org/10.1007/s10439-012-0593-5. 
@@ -100,13 +100,13 @@ if __name__ == "__main__":
     # Run the Laplace solver
     if run_flag:
         print("Running Laplace solver...")
-        laplace_results_file = solver.run("bayer", outdir)
+        laplace_results_file = solver.run("bayer_lv", outdir)
     else:
         laplace_results_file = os.path.join(outdir, 'result_001.vtu')
 
     # Initialize fiber generator
     print("\nGenerating fibers using Bayer method...")
-    fib_gen = FibGenBayer()
+    fib_gen = FibGenBayerLV()
 
     # Load Laplace results
     fib_gen.load_laplace_results(laplace_results_file)

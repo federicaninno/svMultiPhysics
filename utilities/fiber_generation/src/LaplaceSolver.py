@@ -245,6 +245,21 @@ class LaplaceSolver:
             ]),
         ]
     
+    def _get_bayer_lv_equations(self):
+        return [
+            # Trans_EPI: epicardium=1, lv_endo=0
+            ("Trans_EPI", [
+                ("epicardium", 1.0),
+                ("lv_endocardium", 0.0),
+            ]),
+            # Long_AB: base=1, apex=0
+            ("Long_AB", [
+                ("base", 1.0),
+                ("epi_apex", 0.0),
+            ]),
+        ]
+
+    
     def _get_doste_equations(self):
         """Get equation definitions for the Doste method.
         
@@ -318,6 +333,8 @@ class LaplaceSolver:
         """
         if method == "bayer":
             return ["epicardium", "base", "epi_apex", "lv_endocardium", "rv_endocardium"]
+        elif method == "bayer_lv":
+            return ["epicardium", "base", "epi_apex", "lv_endocardium"]
         elif method == "doste":
             return ["epicardium", "mitral_valve", "aortic_valve", "tricuspid_valve", "pulmonary_valve", "epi_apex", "lv_endocardium", "rv_endocardium"]
         else:
@@ -359,6 +376,8 @@ class LaplaceSolver:
         # Add equations based on method
         if method == "bayer":
             equations = self._get_bayer_equations()
+        elif method == "bayer_lv":
+            equations = self._get_bayer_lv_equations()
         elif method == "doste":
             equations = self._get_doste_equations()
         else:

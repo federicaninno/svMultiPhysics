@@ -501,6 +501,116 @@ class FibGenBayer(FibGen):
         beta = betaS * (1 - self.lap['Trans_EPI']) + betaW * self.lap['Trans_EPI']
 
         return alfa, beta
+    
+class FibGenBayerLV(FibGen):
+    """Fiber generator using the Bayer et al. (2012) method.
+    
+    Suitable for truncated left ventricular geometries. Implements the rule-based
+    algorithm described in Bayer et al. 2012:
+    https://doi.org/10.1007/s10439-012-0593-5
+    """
+    
+    # Field names in Laplace solution
+    FIELD_NAMES = ['Trans_EPI', 'Long_AB']
+    
+    def __init__(self):
+        """Initialize the Bayer fiber generator."""
+        super().__init__()
+    
+    def load_laplace_results(self, file_path):
+        """Load Laplace-Dirichlet solution for Bayer method.
+        
+        Args:
+            file_path: Path to the .vtu file with Laplace solution.
+        
+        Returns:
+            tuple: (lap, grad) dictionaries with Laplace values and gradients.
+        """
+        print(f"   Loading Laplace solution <--- {file_path}")
+        result_mesh = pv.read(file_path)
+        
+        print("   Computing gradients at points")
+        result_mesh = self._compute_gradients(result_mesh, self.FIELD_NAMES)
+        
+        # Convert point-data to cell-data
+        mesh_cells = result_mesh.point_data_to_cell_data()
+        self.mesh = mesh_cells
+        
+        # Extract Laplace values and gradients 
+        self.lap = {}
+        self.grad = {}
+        
+        for key in self.FIELD_NAMES:
+            self.lap[key] = np.asarray(mesh_cells.cell_data[key])
+            self.grad[key] = np.asarray(mesh_cells.cell_data[key + "_grad"])
+        
+        
+        return self.lap, self.grad
+    
+
+    def generate_fibers(self, params, correct_slerp=True):
+        """Generate fiber directions using the Bayer method.
+        
+        Args:
+            params: Dictionary with keys:
+                - ALFA_END: Endocardial helix angle (degrees)
+                - ALFA_EPI: Epicardial helix angle (degrees)
+                - BETA_END: Endocardial transverse angle (degrees)
+                - BETA_EPI: Epicardial transverse angle (degrees)
+            flip_rv: If True, flip circumferential and transmural directions in RV.
+                Defaults to True.
+            correct_slerp: If True, use quaternion correction for SLERP interpolation.
+                Defaults to False.
+        
+        Returns:
+            tuple: (F, S, T) fiber, sheet, and normal directions (N, 3) each.
+        """
+        if self.lap is None or self.grad is None:
+            raise ValueError("Must call load_laplace_results() first")
+        
+        # Convert parameters to radians (consistent with Doste method)
+        params = {k: np.deg2rad(v) for k, v in params.items()}
+                
+        print("   Computing fiber directions at cells")
+        
+        Q_END0 = self.axis(self.grad["Long_AB"], self.grad["Trans_EPI"])
+        Q_END  = self.orient_matrix(Q_END0, params['ALFA_END'], params['BETA_END'])
+        
+        # Build epicardial basis
+        Q_EPI0 = self.axis(self.grad['Long_AB'], self.grad['Trans_EPI'])
+        Q_EPI = self.orient_matrix(Q_EPI0, params['ALFA_EPI'], params['BETA_EPI'])
+        
+        # Interpolate from endo to epi
+        FST = self.interpolate_basis(Q_END, Q_EPI, self.lap['Trans_EPI'], correct_slerp=correct_slerp)
+        
+        F = FST[:, :, 0]  # Fiber direction
+        S = FST[:, :, 1]  # Sheet normal
+        T = FST[:, :, 2]  # Sheet direction
+        
+        self.mesh.cell_data['fiber'] = F
+        self.mesh.cell_data['sheet-normal'] = S
+        self.mesh.cell_data['sheet'] = T
+    
+        return F, S, T
+        
+    def get_angle_fields(self, params):
+        """Compute global alpha and beta angle fields.
+        
+        Helper function to compute spatially-varying helix and transverse angle fields
+        by interpolating between septum and wall values.
+        
+        Args:
+            params: Dictionary with angle parameters (in degrees or radians).
+            
+        Returns:
+            tuple: (alfa, beta) arrays of helix and transverse angles at each cell.
+        """
+
+        # Wall angles (interpolated from endo to epi)
+        alfa = self.calculate_angle(self.lap['Trans_EPI'], params['ALFA_END'], params['ALFA_EPI'])
+        beta = self.calculate_angle(self.lap['Trans_EPI'], params['BETA_END'], params['BETA_EPI'])
+
+        return alfa, beta
 
 
 class FibGenDoste(FibGen):

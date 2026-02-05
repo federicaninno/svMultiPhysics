@@ -72,5 +72,8 @@ class SurfaceName(Enum):
         elif method == "doste":
             return {cls.EPICARDIUM, cls.ENDOCARDIUM_LV, cls.ENDOCARDIUM_RV, cls.EPICARDIUM_APEX, 
                    cls.MITRAL_VALVE, cls.AORTIC_VALVE, cls.TRICUSPID_VALVE, cls.PULMONARY_VALVE}
+        elif method == "bayer_lv":
+            return {cls.EPICARDIUM, cls.ENDOCARDIUM_LV, cls.BASE, cls.EPICARDIUM_APEX}
+
         else:
             raise ValueError(f"Unknown method: {method}. Use 'bayer' or 'doste'.")

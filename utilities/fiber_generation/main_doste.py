@@ -30,9 +30,9 @@ if __name__ == "__main__":
     run_flag = True
     svmultiphysics_exec = "svmultiphysics "
 
-    mesh_path = "example/ot/mesh-complete.mesh.vtu"
-    outdir = "example/ot/output_doste"
-    surfaces_dir = 'example/ot/mesh-surfaces'
+    mesh_path = "example/ot/mesh-complete_PEXA_12.mesh.vtu"
+    outdir = "example/ot/output_doste_PEXA_12"
+    surfaces_dir = 'example/ot/mesh-surfaces_PEXA_12'
 
 
     # Parameters from the Doste paper https://doi.org/10.1002/cnm.3185
@@ -91,15 +91,15 @@ if __name__ == "__main__":
 
     # Define surface paths
     surface_paths = {
-        SurfaceName.EPICARDIUM: f'{surfaces_dir}/epi.vtp',
+        SurfaceName.EPICARDIUM: f'{surfaces_dir}/epicardium_new_cm.vtp',
         SurfaceName.EPICARDIUM_APEX: f'{surfaces_dir}/epi_apex.vtp',
         SurfaceName.AORTIC_VALVE: f'{surfaces_dir}/av.vtp',
-        SurfaceName.MITRAL_VALVE: f'{surfaces_dir}/mv.vtp',
+        SurfaceName.MITRAL_VALVE: f'{surfaces_dir}/endoepiconnection_new_cm.vtp',
         SurfaceName.TRICUSPID_VALVE: f'{surfaces_dir}/tv.vtp',
         SurfaceName.PULMONARY_VALVE: f'{surfaces_dir}/pv.vtp',
-        SurfaceName.ENDOCARDIUM_LV: f'{surfaces_dir}/endo_lv.vtp',
+        SurfaceName.ENDOCARDIUM_LV: f'{surfaces_dir}/endocardium_new_cm.vtp',
         SurfaceName.ENDOCARDIUM_RV: f'{surfaces_dir}/endo_rv.vtp',
-        SurfaceName.BASE: f'{surfaces_dir}/top.vtp'
+        SurfaceName.BASE: f'{surfaces_dir}/endoepiconnection_new_cm.vtp'
     }
 
     # Create output directory if needed

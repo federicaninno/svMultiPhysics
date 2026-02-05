@@ -41,7 +41,6 @@
       <Face_file_path> mesh/mesh-surfaces/top.vtp </Face_file_path>
   </Add_face>
 
-  <Mesh_scale_factor> 100.0 </Mesh_scale_factor>  <!-- Convert from m to cm -->
 </Add_mesh>
 
 
@@ -53,8 +52,8 @@
    <Max_iterations> 10 </Max_iterations> 
    <Tolerance> 1e-9 </Tolerance> 
 
-   <Density> 1.0 </Density>                           <!-- g/cm^3 -->
-   <Elasticity_modulus> 1.0e5 </Elasticity_modulus>   <!-- dyne/cm^2 -->
+   <Density> 1.0 </Density>                           <!-- g/m^3 -->
+   <Elasticity_modulus> 1.0e5 </Elasticity_modulus>   <!-- dyne/m^2 -->
    <Poisson_ratio> 0.483333 </Poisson_ratio>
    <Constitutive_model type="neoHookean"> 
       </Constitutive_model> 

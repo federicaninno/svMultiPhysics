@@ -31,9 +31,9 @@ if __name__ == "__main__":
     run_flag = True
     svmultiphysics_exec = "svmultiphysics "
 
-    mesh_path = "example/ot/mesh-complete_testcase.mesh.vtu"
-    outdir = "example/ot/output_bayer_testcase_changesigns"
-    surfaces_dir = 'example/ot/mesh-surfaces_HO_active_testcase'
+    mesh_path = "example/ot/PPC5_5000.mesh.vtu"
+    outdir = "example/ot/output_LV_Anne"
+    surfaces_dir = 'example/ot/mesh-surfaces_Anne'
                     
     # Parameters for the Bayer et al. method https://doi.org/10.1007/s10439-012-0593-5. 
     params = {
@@ -78,11 +78,10 @@ if __name__ == "__main__":
     surfaces_dir = os.path.abspath(surfaces_dir)
 
     # Define surface paths
-    surface_paths = {SurfaceName.EPICARDIUM: f'{surfaces_dir}/epi.vtp',
-                    SurfaceName.EPICARDIUM_APEX: f'{surfaces_dir}/EPI_APEX.vtp',
-                    SurfaceName.BASE: f'{surfaces_dir}/top.vtp',
-                    SurfaceName.ENDOCARDIUM_LV: f'{surfaces_dir}/endo.vtp',
-                    SurfaceName.ENDOCARDIUM_RV: f'{surfaces_dir}/endo.vtp'
+    surface_paths = {SurfaceName.EPICARDIUM: f'{surfaces_dir}/Epi_surface.vtp',
+                    SurfaceName.EPICARDIUM_APEX: f'{surfaces_dir}/Epi_apex.vtp',
+                    SurfaceName.BASE: f'{surfaces_dir}/Base.vtp',
+                    SurfaceName.ENDOCARDIUM_LV: f'{surfaces_dir}/Endo_surface_open.vtp'
                     }
     
     # Create output directory if needed

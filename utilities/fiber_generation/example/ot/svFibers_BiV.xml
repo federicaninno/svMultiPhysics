@@ -10,7 +10,7 @@
 		<Save_results_to_VTK_format> 1 </Save_results_to_VTK_format>
 		<Name_prefix_of_saved_VTK_files> result </Name_prefix_of_saved_VTK_files>
 		<Increment_in_saving_VTK_files> 1 </Increment_in_saving_VTK_files>
-		<Save_results_in_folder> /Users/federicaninno/svMultiPhysics/utilities/fiber_generation/example/ot/output_bayer_testcase_changesigns </Save_results_in_folder>
+		<Save_results_in_folder> /Users/federicaninno/svMultiPhysics/utilities/fiber_generation/example/ot/output_LV_Anne </Save_results_in_folder>
 		<Start_saving_after_time_step> 1 </Start_saving_after_time_step>
 		<Increment_in_saving_restart_files> 1 </Increment_in_saving_restart_files>
 		<Convert_BIN_to_VTK_format> 0 </Convert_BIN_to_VTK_format>
@@ -19,18 +19,18 @@
 		<Debug> 0 </Debug>
 	</GeneralSimulationParameters>
 	<Add_mesh name="msh">
-		<Mesh_file_path> /Users/federicaninno/svMultiPhysics/utilities/fiber_generation/example/ot/mesh-complete_testcase.mesh.vtu </Mesh_file_path>
+		<Mesh_file_path> /Users/federicaninno/svMultiPhysics/utilities/fiber_generation/example/ot/PPC5_5000.mesh.vtu </Mesh_file_path>
 		<Add_face name="epicardium">
-			<Face_file_path> /Users/federicaninno/svMultiPhysics/utilities/fiber_generation/example/ot/mesh-surfaces_HO_active_testcase/epi.vtp </Face_file_path>
+			<Face_file_path> /Users/federicaninno/svMultiPhysics/utilities/fiber_generation/example/ot/mesh-surfaces_Anne/Epi_surface.vtp </Face_file_path>
 		</Add_face>
 		<Add_face name="base">
-			<Face_file_path> /Users/federicaninno/svMultiPhysics/utilities/fiber_generation/example/ot/mesh-surfaces_HO_active_testcase/top.vtp </Face_file_path>
+			<Face_file_path> /Users/federicaninno/svMultiPhysics/utilities/fiber_generation/example/ot/mesh-surfaces_Anne/Base.vtp </Face_file_path>
 		</Add_face>
 		<Add_face name="epi_apex">
-			<Face_file_path> /Users/federicaninno/svMultiPhysics/utilities/fiber_generation/example/ot/mesh-surfaces_HO_active_testcase/EPI_APEX.vtp </Face_file_path>
+			<Face_file_path> /Users/federicaninno/svMultiPhysics/utilities/fiber_generation/example/ot/mesh-surfaces_Anne/Epi_apex.vtp </Face_file_path>
 		</Add_face>
 		<Add_face name="lv_endocardium">
-			<Face_file_path> /Users/federicaninno/svMultiPhysics/utilities/fiber_generation/example/ot/mesh-surfaces_HO_active_testcase/endo.vtp </Face_file_path>
+			<Face_file_path> /Users/federicaninno/svMultiPhysics/utilities/fiber_generation/example/ot/mesh-surfaces_Anne/Endo_surface_open.vtp </Face_file_path>
 		</Add_face>
 	</Add_mesh>
 	<Add_equation type="heatS">

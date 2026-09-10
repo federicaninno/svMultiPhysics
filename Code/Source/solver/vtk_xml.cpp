@@ -1282,6 +1282,7 @@ void write_vtus(Simulation* simulation, const SolutionStates& solutions, const b
           case OutputNameType::outGrp_strain:
           case OutputNameType::outGrp_fS:
           case OutputNameType::outGrp_I1:
+          case OutputNameType::outGrp_strainEnergy:
             #ifdef debug_write_vtus 
             dmsg << "case " << " outGrp_J";
             #endif

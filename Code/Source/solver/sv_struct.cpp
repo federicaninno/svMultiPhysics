@@ -225,9 +225,10 @@ void construct_dsolid(ComMod& com_mod, CepMod& cep_mod, const mshType& lM, const
 
   Vector<int> ptr(eNoN);
   Vector<double> pSl(nsymd), ya_l_f(eNoN), ya_l_s(eNoN), ya_l_n(eNoN), N(eNoN);
-  Array<double> xl(nsd,eNoN), al(tDof,eNoN), yl(tDof,eNoN), dl(tDof,eNoN), 
+  Array<double> xl(nsd,eNoN), al(tDof,eNoN), yl(tDof,eNoN), dl(tDof,eNoN),
                 bfl(nsd,eNoN), fN(nsd,nFn), pS0l(nsymd,eNoN), Nx(nsd,eNoN), lR(dof,eNoN);
   Array3<double> lK(dof*dof,eNoN,eNoN);
+  Array<double> Fint_l(nsd,eNoN), Fext_l(nsd,eNoN);
 
   // Loop over all elements of mesh
 
@@ -289,6 +290,8 @@ void construct_dsolid(ComMod& com_mod, CepMod& cep_mod, const mshType& lM, const
     //
     lR = 0.0;
     lK = 0.0;
+    Fint_l = 0.0;
+    Fext_l = 0.0;
 
     double Jac{0.0};
     Array<double> ksix(nsd,nsd);
@@ -307,7 +310,7 @@ void construct_dsolid(ComMod& com_mod, CepMod& cep_mod, const mshType& lM, const
 
       if (nsd == 3) {
         struct_3d(com_mod, cep_mod, eNoN, nFn, w, N, Nx, al, yl, dl, bfl, fN,
-                  pS0l, pSl, ya_l_f, ya_l_s, ya_l_n, lR, lK);
+                  pS0l, pSl, ya_l_f, ya_l_s, ya_l_n, lR, lK, Fint_l, Fext_l);
 
 #if 0
         if (e == 0 && g == 0) {
@@ -321,7 +324,7 @@ void construct_dsolid(ComMod& com_mod, CepMod& cep_mod, const mshType& lM, const
 
       } else if (nsd == 2) {
         struct_2d(com_mod, cep_mod, eNoN, nFn, w, N, Nx, al, yl, dl, bfl, fN,
-                  pS0l, pSl, ya_l_f, ya_l_s, ya_l_n, lR, lK);
+                  pS0l, pSl, ya_l_f, ya_l_s, ya_l_n, lR, lK, Fint_l, Fext_l);
       }
 
       // Prestress
@@ -334,10 +337,21 @@ void construct_dsolid(ComMod& com_mod, CepMod& cep_mod, const mshType& lM, const
           }
         }
       }
-    } 
+    }
+
+    // Diagnostic Internal_force / External_force accumulation (phys_struct only,
+    // enforced by the domain-level 'continue' above). Unweighted local-to-global
+    // scatter, since force is an assembled sum, not an area-weighted average.
+    for (int a = 0; a < eNoN; a++) {
+      int Ac = ptr(a);
+      for (int i = 0; i < nsd; i++) {
+        com_mod.Fint_g(i,Ac) = com_mod.Fint_g(i,Ac) + Fint_l(i,a);
+        com_mod.Fext_g(i,Ac) = com_mod.Fext_g(i,Ac) + Fext_l(i,a);
+      }
+    }
 
     eq.linear_algebra->assemble(com_mod, eNoN, ptr, lK, lR);
-  } 
+  }
 }
 
 /// @brief Reproduces Fortran 'STRUCT2D' subroutine.
@@ -349,11 +363,12 @@ void struct_2d(ComMod &com_mod, CepMod &cep_mod, const int eNoN, const int nFn,
                const Array<double> &fN, const Array<double> &pS0l,
                Vector<double> &pSl, const Vector<double> &ya_l_f,
                const Vector<double> &ya_l_s, const Vector<double> &ya_l_n,
-               Array<double> &lR, Array3<double> &lK) {
+               Array<double> &lR, Array3<double> &lK,
+               Array<double> &Fint_l, Array<double> &Fext_l) {
   using namespace consts;
   using namespace mat_fun;
 
-  #define n_debug_struct_2d 
+  #define n_debug_struct_2d
   #ifdef debug_struct_2d 
   DebugMsg dmsg(__func__, com_mod.cm.idcm());
   dmsg.banner();
@@ -390,8 +405,11 @@ void struct_2d(ComMod &com_mod, CepMod &cep_mod, const int eNoN, const int nFn,
   //
   Array<double> F(2,2), S0(2,2), vx(2,2);
   Vector<double> ud(2);
+  Vector<double> udi(2);      // inertia + damping only -> Internal_force
+  Vector<double> fext_gp(2);  // domain body force at the Gauss pt -> External_force
 
   ud = -rho*fb;
+  fext_gp = rho*fb;
   F = 0.0;
   F(0,0) = 1.0;
   F(1,1) = 1.0;
@@ -404,6 +422,12 @@ void struct_2d(ComMod &com_mod, CepMod &cep_mod, const int eNoN, const int nFn,
   for (int a = 0; a < eNoN; a++) {
     ud(0) = ud(0) + N(a)*(rho*(al(i,a)-bfl(0,a)) + dmp*yl(i,a));
     ud(1) = ud(1) + N(a)*(rho*(al(j,a)-bfl(1,a)) + dmp*yl(j,a));
+
+    udi(0) = udi(0) + N(a)*(rho*al(i,a) + dmp*yl(i,a));
+    udi(1) = udi(1) + N(a)*(rho*al(j,a) + dmp*yl(j,a));
+
+    fext_gp(0) = fext_gp(0) + N(a)*rho*bfl(0,a);
+    fext_gp(1) = fext_gp(1) + N(a)*rho*bfl(1,a);
 
     vx(0,0) = vx(0,0) + Nx(0,a)*yl(i,a);
     vx(0,1) = vx(0,1) + Nx(1,a)*yl(i,a);
@@ -471,6 +495,12 @@ void struct_2d(ComMod &com_mod, CepMod &cep_mod, const int eNoN, const int nFn,
   for (int a = 0; a < eNoN; a++) {
     lR(0,a) = lR(0,a) + w*(N(a)*ud(0) + Nx(0,a)*P(0,0) + Nx(1,a)*P(0,1));
     lR(1,a) = lR(1,a) + w*(N(a)*ud(1) + Nx(0,a)*P(1,0) + Nx(1,a)*P(1,1));
+
+    Fint_l(0,a) = Fint_l(0,a) + w*(N(a)*udi(0) + Nx(0,a)*P(0,0) + Nx(1,a)*P(0,1));
+    Fint_l(1,a) = Fint_l(1,a) + w*(N(a)*udi(1) + Nx(0,a)*P(1,0) + Nx(1,a)*P(1,1));
+
+    Fext_l(0,a) = Fext_l(0,a) + w*N(a)*fext_gp(0);
+    Fext_l(1,a) = Fext_l(1,a) + w*N(a)*fext_gp(1);
   }
 
   // Auxilary quantities for computing stiffness tensor
@@ -545,11 +575,12 @@ void struct_3d(ComMod &com_mod, CepMod &cep_mod, const int eNoN, const int nFn,
                const Array<double> &fN, const Array<double> &pS0l,
                Vector<double> &pSl, const Vector<double> &ya_l_f,
                const Vector<double> &ya_l_s, const Vector<double> &ya_l_n,
-               Array<double> &lR, Array3<double> &lK) {
+               Array<double> &lR, Array3<double> &lK,
+               Array<double> &Fint_l, Array<double> &Fext_l) {
   using namespace consts;
   using namespace mat_fun;
 
-  #define n_debug_struct_3d 
+  #define n_debug_struct_3d
   #ifdef debug_struct_3d 
   DebugMsg dmsg(__func__, com_mod.cm.idcm());
   dmsg.banner();
@@ -592,13 +623,16 @@ void struct_3d(ComMod &com_mod, CepMod &cep_mod, const int eNoN, const int nFn,
   //
   Array<double> F(3,3), S0(3,3), vx(3,3);
   Vector<double> ud(3);
+  Vector<double> udi(3);      // inertia + damping only -> Internal_force
+  Vector<double> fext_gp(3);  // domain body force at the Gauss pt -> External_force
 
-  double F_f[3][3]={}; 
+  double F_f[3][3]={};
   F_f[0][0] = 1.0;
   F_f[1][1] = 1.0;
   F_f[2][2] = 1.0;
 
   ud = -rho*fb;
+  fext_gp = rho*fb;
   F = 0.0;
   F(0,0) = 1.0;
   F(1,1) = 1.0;
@@ -613,6 +647,14 @@ void struct_3d(ComMod &com_mod, CepMod &cep_mod, const int eNoN, const int nFn,
     ud(0) = ud(0) + N(a)*(rho*(al(i,a)-bfl(0,a)) + dmp*yl(i,a));
     ud(1) = ud(1) + N(a)*(rho*(al(j,a)-bfl(1,a)) + dmp*yl(j,a));
     ud(2) = ud(2) + N(a)*(rho*(al(k,a)-bfl(2,a)) + dmp*yl(k,a));
+
+    udi(0) = udi(0) + N(a)*(rho*al(i,a) + dmp*yl(i,a));
+    udi(1) = udi(1) + N(a)*(rho*al(j,a) + dmp*yl(j,a));
+    udi(2) = udi(2) + N(a)*(rho*al(k,a) + dmp*yl(k,a));
+
+    fext_gp(0) = fext_gp(0) + N(a)*rho*bfl(0,a);
+    fext_gp(1) = fext_gp(1) + N(a)*rho*bfl(1,a);
+    fext_gp(2) = fext_gp(2) + N(a)*rho*bfl(2,a);
 
     vx(0,0) = vx(0,0) + Nx(0,a)*yl(i,a);
     vx(0,1) = vx(0,1) + Nx(1,a)*yl(i,a);
@@ -698,6 +740,14 @@ void struct_3d(ComMod &com_mod, CepMod &cep_mod, const int eNoN, const int nFn,
     lR(0,a) = lR(0,a) + w*(N(a)*ud(0) + Nx(0,a)*P(0,0) + Nx(1,a)*P(0,1) + Nx(2,a)*P(0,2));
     lR(1,a) = lR(1,a) + w*(N(a)*ud(1) + Nx(0,a)*P(1,0) + Nx(1,a)*P(1,1) + Nx(2,a)*P(1,2));
     lR(2,a) = lR(2,a) + w*(N(a)*ud(2) + Nx(0,a)*P(2,0) + Nx(1,a)*P(2,1) + Nx(2,a)*P(2,2));
+
+    Fint_l(0,a) = Fint_l(0,a) + w*(N(a)*udi(0) + Nx(0,a)*P(0,0) + Nx(1,a)*P(0,1) + Nx(2,a)*P(0,2));
+    Fint_l(1,a) = Fint_l(1,a) + w*(N(a)*udi(1) + Nx(0,a)*P(1,0) + Nx(1,a)*P(1,1) + Nx(2,a)*P(1,2));
+    Fint_l(2,a) = Fint_l(2,a) + w*(N(a)*udi(2) + Nx(0,a)*P(2,0) + Nx(1,a)*P(2,1) + Nx(2,a)*P(2,2));
+
+    Fext_l(0,a) = Fext_l(0,a) + w*N(a)*fext_gp(0);
+    Fext_l(1,a) = Fext_l(1,a) + w*N(a)*fext_gp(1);
+    Fext_l(2,a) = Fext_l(2,a) + w*N(a)*fext_gp(2);
   }
 
   // Auxilary quantities for computing stiffness tensor

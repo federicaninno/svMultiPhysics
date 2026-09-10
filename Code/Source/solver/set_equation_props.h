@@ -556,7 +556,7 @@ SetEquationPropertiesMapType set_equation_props = {
     outPuts = {OutputNameType::out_displacement, OutputNameType::out_stress, OutputNameType::out_cauchy, OutputNameType::out_strain};
     //simulation->com_mod.pstEq = true;
   } else {
-    nDOP = {17, 2, 0, 0};
+    nDOP = {20, 2, 0, 0};
     outPuts = {OutputNameType::out_displacement,
                OutputNameType::out_mises,
                OutputNameType::out_stress,
@@ -573,7 +573,10 @@ SetEquationPropertiesMapType set_equation_props = {
                OutputNameType::out_fibStretchRate,
                OutputNameType::out_activeTensionFibers,
                OutputNameType::out_activeTensionSheets,
-               OutputNameType::out_activeTensionNormal};
+               OutputNameType::out_activeTensionNormal,
+               OutputNameType::out_strainEnergy,
+               OutputNameType::out_intForce,
+               OutputNameType::out_extForce};
   }
 
   // Set solver parameters.

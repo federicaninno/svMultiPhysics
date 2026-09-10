@@ -347,6 +347,9 @@ enum class OutputNameType {
   outGrp_activeTensionFibers = 529,
   outGrp_activeTensionSheets = 530,
   outGrp_activeTensionNormal = 531,
+  outGrp_strainEnergy = 532,
+  outGrp_intForce = 533,
+  outGrp_extForce = 534,
 
   out_velocity = 599,
   out_pressure = 598,
@@ -380,7 +383,10 @@ enum class OutputNameType {
   out_fibStretchRate = 570,
   out_activeTensionFibers = 569,
   out_activeTensionSheets = 568,
-  out_activeTensionNormal = 567
+  out_activeTensionNormal = 567,
+  out_strainEnergy = 566,
+  out_extForce = 565,
+  out_intForce = 564
 };
 
 /// @brief Simulation output file types. 

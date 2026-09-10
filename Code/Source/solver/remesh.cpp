@@ -1891,6 +1891,8 @@ void remesh_restart(Simulation* simulation)
   com_mod.R.clear();
   com_mod.Val.clear();
   com_mod.Bf.clear();
+  com_mod.Fint_g.clear();
+  com_mod.Fext_g.clear();
 
   cplBC.nFa = 0;
 

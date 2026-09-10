@@ -657,6 +657,8 @@ void initialize(Simulation* simulation, Vector<double>& timeP)
   auto& Do = initial_solutions.old.get_displacement();
 
   com_mod.Bf.resize(nsd,tnNo);
+  com_mod.Fint_g.resize(nsd,tnNo);
+  com_mod.Fext_g.resize(nsd,tnNo);
 
   // [TODO] DaveP not implemented?
   // IF (ibFlag) CALL IB_MEMALLOC() 

@@ -747,6 +747,15 @@ void Integrator::initiator(SolutionStates& solutions)
     com_mod.pSn = 0.0;
     com_mod.pSa = 0.0;
   }
+
+  // Diagnostic Internal_force / External_force accumulators (phys_struct only).
+  // Zeroed at the start of every Newton iteration so only the last
+  // (converged) iteration's assembled values persist when this time step's
+  // loop exits.
+  if (eq.phys == EquationType::phys_struct) {
+    com_mod.Fint_g = 0.0;
+    com_mod.Fext_g = 0.0;
+  }
 }
 //------------------------
 // corrector
@@ -922,6 +931,16 @@ void Integrator::corrector()
     }
 
     pSa = 0.0;
+  }
+
+  // Diagnostic Internal_force / External_force accumulators (phys_struct only).
+  // Sum contributions from nodes shared across MPI partition boundaries. No
+  // normalization/averaging step here (unlike pSn/pSa above) -- force is an
+  // extensive quantity, so the raw summed value is already the correct final
+  // nodal force.
+  if (eq.phys == EquationType::phys_struct) {
+    all_fun::commu(com_mod, com_mod.Fint_g);
+    all_fun::commu(com_mod, com_mod.Fext_g);
   }
 
   // Filter out the non-wall displacements for CMM equation

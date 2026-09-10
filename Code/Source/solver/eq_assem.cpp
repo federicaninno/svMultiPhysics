@@ -144,6 +144,19 @@ void b_assem_neu_bc(ComMod& com_mod, const faceType& lFa, const Vector<double>& 
       }
     }
 
+    // Diagnostic External_force accumulation (phys_struct only). At this point
+    // 'lR' holds purely the negated prescribed traction/pressure contribution
+    // (nothing else writes into it for phys_struct in this function), so the
+    // external load itself is '-lR'.
+    if (cPhys == EquationType::phys_struct) {
+      for (int a = 0; a < eNoN; a++) {
+        int Ac = ptr(a);
+        for (int i = 0; i < nsd; i++) {
+          com_mod.Fext_g(i,Ac) = com_mod.Fext_g(i,Ac) - lR(i,a);
+        }
+      }
+    }
+
     eq.linear_algebra->assemble(com_mod, eNoN, ptr, lK, lR);
   }
 }
@@ -271,6 +284,18 @@ void b_neu_folw_p(ComMod& com_mod, const bcType& lBc, const faceType& lFa, const
           struct_ns::b_struct_3d(com_mod, eNoN, w, N, Nx, dl, hl, nV, lR, lK);
         } else {
           struct_ns::b_struct_2d(com_mod, eNoN, w, N, Nx, dl, hl, nV, lR, lK);
+        }
+      }
+    }
+
+    // Diagnostic External_force accumulation (phys_struct only). At this point
+    // 'lR' holds purely the negated follower-pressure-load contribution, so
+    // the external load itself is '-lR'.
+    if (cPhys == EquationType::phys_struct) {
+      for (int a = 0; a < eNoN; a++) {
+        int Ac = ptr(a);
+        for (int i = 0; i < nsd; i++) {
+          com_mod.Fext_g(i,Ac) = com_mod.Fext_g(i,Ac) - lR(i,a);
         }
       }
     }

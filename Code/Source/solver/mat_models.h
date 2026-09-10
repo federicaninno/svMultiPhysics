@@ -60,8 +60,25 @@ void compute_pk2cc_shli(const ComMod& com_mod, const dmnType& lDmn, const int nf
 
 void compute_tau(const ComMod& com_mod, const dmnType& lDmn, const double detF, const double Je, double& tauM, double& tauC);
 
-void compute_svol_p(const ComMod& com_mod, const CepMod& cep_mod, const stModelType& stM, const double J, 
+void compute_svol_p(const ComMod& com_mod, const CepMod& cep_mod, const stModelType& stM, const double J,
     double& p, double& pl);
+
+/**
+ * @brief Compute the strain energy density (per unit reference volume) for the
+ * compressible Neo-Hookean isochoric constitutive model, including the
+ * volumetric penalty energy.
+ *
+ * Returns 0.0 for any domain not using the Neo-Hookean model
+ * (ConstitutiveModelType::stIso_nHook), since this is currently only defined
+ * for that model. Fiber reinforcement / active stress contributions are not
+ * included.
+ *
+ * @param[in] com_mod Object containing global common variables.
+ * @param[in] lDmn Domain object.
+ * @param[in] F Deformation gradient tensor.
+ * @return Strain energy density, or 0.0 if lDmn is not Neo-Hookean.
+ */
+double compute_strain_energy_nhk(const ComMod& com_mod, const dmnType& lDmn, const Array<double>& F);
 
 void g_vol_pen(const ComMod& com_mod, const dmnType& lDmn, const double p, 
     double& ro, double& bt, double& dro, double& dbt, const double Ja);

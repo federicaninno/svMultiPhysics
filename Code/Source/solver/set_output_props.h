@@ -35,6 +35,9 @@ std::map<consts::OutputNameType, OutputProps> output_props_map =
   {OutputNameType::out_divergence,   std::make_tuple(OutputNameType::outGrp_divV,   0, 1,             "Divergence") },
   {OutputNameType::out_energyFlux,   std::make_tuple(OutputNameType::outGrp_eFlx,   0, nsd,           "Energy_flux") },
 
+  {OutputNameType::out_intForce,     std::make_tuple(OutputNameType::outGrp_intForce, 0, nsd,         "Internal_force") },
+  {OutputNameType::out_extForce,     std::make_tuple(OutputNameType::outGrp_extForce, 0, nsd,         "External_force") },
+
   {OutputNameType::out_fibAlign,     std::make_tuple(OutputNameType::outGrp_fA,     0, 1,             "Fiber_alignment") },
   {OutputNameType::out_fibDir,       std::make_tuple(OutputNameType::outGrp_fN,     0, nsd,           "Fiber_direction") },
   {OutputNameType::out_fibStrn,      std::make_tuple(OutputNameType::outGrp_fS,     0, 1,             "Fiber_shortening") },
@@ -50,6 +53,7 @@ std::map<consts::OutputNameType, OutputProps> output_props_map =
   {OutputNameType::out_mises,        std::make_tuple(OutputNameType::outGrp_mises,  0,   1,             "VonMises_stress") },
   {OutputNameType::out_pressure,     std::make_tuple(OutputNameType::outGrp_Y,      nsd, 1,           "Pressure") },
   {OutputNameType::out_strain,       std::make_tuple(OutputNameType::outGrp_strain, 0, com_mod.nsymd, "Strain") },
+  {OutputNameType::out_strainEnergy, std::make_tuple(OutputNameType::outGrp_strainEnergy, 0, 1,       "Strain_energy") },
   {OutputNameType::out_strainInv,    std::make_tuple(OutputNameType::outGrp_stInv,  0, nsd,           "Strain_invariants") },
   {OutputNameType::out_stress,       std::make_tuple(OutputNameType::outGrp_stress, 0, com_mod.nsymd, "Stress") },
   {OutputNameType::out_temperature,  std::make_tuple(OutputNameType::outGrp_Y,      0, 1,             "Temperature") },

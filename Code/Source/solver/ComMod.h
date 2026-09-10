@@ -1837,6 +1837,13 @@ class ComMod {
     Array<double>  pSn;
     Vector<double>  pSa;
 
+    /// @brief Internal force (stress divergence + inertia + damping), accumulated
+    /// per node for phys_struct diagnostic VTK output only (Internal_force).
+    Array<double>  Fint_g;
+    /// @brief External force (body force + prescribed traction/pressure), accumulated
+    /// per node for phys_struct diagnostic VTK output only (External_force).
+    Array<double>  Fext_g;
+
     /// @brief Temporary storage for initializing state variables
     Vector<double> Pinit;
     Array<double>  Vinit;

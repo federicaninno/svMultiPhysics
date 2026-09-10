@@ -1857,6 +1857,14 @@ void tpost(Simulation* simulation, const mshType& lM, const int m, Array<double>
           }
         break;
 
+        // Neo-Hookean strain energy density (0.0 for non-Neo-Hookean domains)
+        case OutputNameType::outGrp_strainEnergy: {
+          double psi = mat_models::compute_strain_energy_nhk(com_mod, eq.dmn[cDmn], F);
+          resl(0) = psi;
+          sE(e) = sE(e) + w*psi;
+        }
+        break;
+
         case OutputNameType::outGrp_stress:
         case OutputNameType::outGrp_cauchy: 
         case OutputNameType::outGrp_mises:

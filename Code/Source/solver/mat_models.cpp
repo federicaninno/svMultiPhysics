@@ -1460,7 +1460,55 @@ void compute_svol_p(const ComMod& com_mod, const CepMod& cep_mod, const stModelT
       p  = Kp*(1.0-1.0/J);
       pl = Kp;
     break;
-  } 
+  }
+}
+
+/// @brief Compute the Neo-Hookean strain energy density (isochoric term plus
+/// volumetric penalty energy, consistent with compute_svol_p). Returns 0.0
+/// for domains not using the Neo-Hookean model.
+//
+double compute_strain_energy_nhk(const ComMod& com_mod, const dmnType& lDmn, const Array<double>& F)
+{
+  using namespace consts;
+  using namespace mat_fun;
+
+  const auto& stM = lDmn.stM;
+  if (stM.isoType != ConstitutiveModelType::stIso_nHook) {
+    return 0.0;
+  }
+
+  int nsd = com_mod.nsd;
+  double nd = static_cast<double>(nsd);
+
+  double J = mat_det(F, nsd);
+  double J2d = pow(J, -2.0/nd);
+  auto C = mat_mul(transpose(F), F);
+  double Ic_bar = J2d * mat_trace(C, nsd);
+
+  // Isochoric Neo-Hookean strain energy: psi_iso = C10*(Ic_bar - nd),
+  // consistent with the fictitious stress S_bar = 2*C10*Idm used in compute_pk2cc.
+  double psi = stM.C10 * (Ic_bar - nd);
+
+  // Volumetric penalty energy U(J), with U(1) = 0, consistent with the
+  // pressure p = dU/dJ used in compute_svol_p.
+  double Kp = stM.Kpen;
+  if (!utils::is_zero(Kp)) {
+    switch (stM.volType) {
+      case ConstitutiveModelType::stVol_Quad:
+        psi += 0.5*Kp*(J-1.0)*(J-1.0);
+      break;
+
+      case ConstitutiveModelType::stVol_ST91:
+        psi += 0.25*Kp*(J*J - 1.0 - 2.0*log(J));
+      break;
+
+      case ConstitutiveModelType::stVol_M94:
+        psi += Kp*(J - log(J) - 1.0);
+      break;
+    }
+  }
+
+  return psi;
 }
 
 /// @brief Compute stabilization parameters tauM and tauC.

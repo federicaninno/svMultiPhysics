@@ -316,7 +316,13 @@ if(SV_MPI_EXTRA_LIBRARY)
 endif()
 
 if(USE_TRILINOS)
-  target_link_libraries(${SV_MULTIPHYSICS_EXE} ${Trilinos_LIBRARIES} ${Trilinos_TPL_LIBRARIES})
+  # Wrap in a linker group: Trilinos_LIBRARIES lists many individual static
+  # package archives (Tpetra::all_libs, Teuchos::all_libs, ...) rather than the
+  # single aggregate Trilinos::all_libs target, so circular dependencies among
+  # them can cause GNU ld's single-pass symbol resolution to report spurious
+  # "undefined reference" errors for static Trilinos builds. --start-group/
+  # --end-group makes ld retry the archives until all symbols resolve.
+  target_link_libraries(${SV_MULTIPHYSICS_EXE} -Wl,--start-group ${Trilinos_LIBRARIES} ${Trilinos_TPL_LIBRARIES} -Wl,--end-group)
 endif()
 
 if(USE_PETSC)
@@ -391,7 +397,7 @@ if(ENABLE_UNIT_TEST)
   add_executable(run_all_unit_tests ${CSRCS})
   
   if(USE_TRILINOS)
-    target_link_libraries(run_all_unit_tests ${Trilinos_LIBRARIES} ${Trilinos_TPL_LIBRARIES})
+    target_link_libraries(run_all_unit_tests -Wl,--start-group ${Trilinos_LIBRARIES} ${Trilinos_TPL_LIBRARIES} -Wl,--end-group)
   endif()
 
   if(USE_PETSC)

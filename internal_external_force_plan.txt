@@ -1,0 +1,272 @@
+Internal_force / External_force outputs for struct equations
+==============================================================
+
+CONTEXT
+-------
+
+The user is solving an inverse problem: estimating a spatially-heterogeneous
+Young's modulus field in a passively-inflated left ventricle from displacement
+data. svMultiPhysics runs the forward problem; a separate code does the
+inversion. To validate the forward solve and cross-check the inverse code,
+the user wants to verify force/equilibrium balance directly from
+svMultiPhysics output: at every free node, the internal (material/inertial)
+resistance should equal the externally applied load; at constrained nodes,
+the imbalance is the reaction force.
+
+Today these two contributions are summed into a single combined residual
+during Newton-Raphson assembly and used only to check convergence -- they are
+never persisted separately. This plan adds two new per-node vector VTK
+outputs, Internal_force and External_force, for phys_struct equations
+only (matching the scope of the earlier Strain_energy output work on this
+branch), computed by capturing the existing assembly terms into two parallel
+"shadow" global arrays instead of only their sum.
+
+Field definitions (agreed with user):
+- Internal_force = stress-divergence term (integral of grad(N).P) PLUS
+  inertia (rho*accel) PLUS damping -- i.e. everything currently folded into
+  Nx*P and the inertia/damping part of `ud` in the element residual.
+- External_force = true prescribed loads only -- domain body force
+  (f_x/f_y/f_z props) + per-node prescribed body force field (com_mod.Bf)
+  + prescribed boundary pressure/traction (plain and follower-load Neumann
+  BCs).
+
+This grouping (not a 3-way split) gives an EXACT equality,
+Internal_force ~= External_force, at every free node once Newton's method
+converges -- verified algebraically and against the code below -- because it
+mirrors exactly how the residual is already built, just with the terms
+partitioned differently instead of approximated.
+
+Verified sign convention: in every place the residual is assembled for
+phys_struct (sv_struct.cpp:601-701 volumetric; l_elas.cpp:29 plain
+traction; sv_struct.cpp:65-66,162-164 follower pressure), stress/inertia/
+damping terms are added to lR (lR += ...) and load terms are subtracted
+(lR -= ...). So lR = Internal_local - External_local everywhere. This
+means: External_local(i,a) = -lR(i,a) in the two boundary-only functions
+(where lR starts at zero and only carries the load term).
+
+Known limitation to document, not fix: Robin BCs, weak-Dirichlet penalty
+BCs, and contact forces also affect the true residual for phys_struct but
+are out of scope here (not body force or prescribed pressure/traction). At
+any node touched by one of those, Internal - External will not read as
+exactly 0 or the true reaction force. This is a documented caveat, not a bug.
+
+IMPLEMENTATION
+---------------
+
+1. Code/Source/solver/ComMod.h -- declare arrays
+   Next to `Vector<double> pSa;` (~line 1838), add:
+
+   Array<double> Fint_g;  // Internal force (stress div. + inertia + damping), phys_struct diagnostic output only
+   Array<double> Fext_g;  // External force (body force + prescribed traction/pressure), phys_struct diagnostic output only
+
+2. Code/Source/solver/initialize.cpp -- size arrays
+   Next to `com_mod.Bf.resize(nsd,tnNo);` (line 659), add:
+
+   com_mod.Fint_g.resize(nsd,tnNo);
+   com_mod.Fext_g.resize(nsd,tnNo);
+
+3. Code/Source/solver/remesh.cpp -- invalidate on remesh
+   Next to `com_mod.Bf.clear();` (line 1893), add:
+
+   com_mod.Fint_g.clear();
+   com_mod.Fext_g.clear();
+
+   (remesh_restart re-runs initialize.cpp's allocation afterward, mirroring
+   how Bf/pSn/pSa are already handled.)
+
+4. Code/Source/solver/sv_struct.h -- signature changes (volumetric only)
+   Add two trailing params to struct_2d/struct_3d declarations:
+
+   Array<double> &Fint_l, Array<double> &Fext_l
+
+   Leave b_struct_2d/b_struct_3d (boundary follower-pressure functions)
+   untouched -- see step 8.
+
+5. Code/Source/solver/sv_struct.cpp -- struct_3d (~lines 541-701)
+   - Add the two new params to the definition.
+   - After `Vector<double> ud(3);` (line 594), add
+     `Vector<double> udi(3); Vector<double> fext_gp(3);`.
+   - After `ud = -rho*fb;` (line 601), add `fext_gp = rho*fb;`.
+   - In the node loop (after line 615), add, mirroring the existing ud
+     accumulation exactly but split:
+
+     udi(0) += N(a)*(rho*al(i,a) + dmp*yl(i,a));
+     udi(1) += N(a)*(rho*al(j,a) + dmp*yl(j,a));
+     udi(2) += N(a)*(rho*al(k,a) + dmp*yl(k,a));
+     fext_gp(0) += N(a)*rho*bfl(0,a);
+     fext_gp(1) += N(a)*rho*bfl(1,a);
+     fext_gp(2) += N(a)*rho*bfl(2,a);
+
+     (Algebraically ud == udi - fext_gp identically -- confirmed against
+     lines 601-615 -- so the existing lR/lK computation is numerically
+     unaffected.)
+   - In the residual loop (lines 697-701), alongside the existing lR lines,
+     add:
+
+     Fint_l(0,a) += w*(N(a)*udi(0) + Nx(0,a)*P(0,0) + Nx(1,a)*P(0,1) + Nx(2,a)*P(0,2));
+     Fint_l(1,a) += w*(N(a)*udi(1) + Nx(0,a)*P(1,0) + Nx(1,a)*P(1,1) + Nx(2,a)*P(1,2));
+     Fint_l(2,a) += w*(N(a)*udi(2) + Nx(0,a)*P(2,0) + Nx(1,a)*P(2,1) + Nx(2,a)*P(2,2));
+     Fext_l(0,a) += w*N(a)*fext_gp(0);
+     Fext_l(1,a) += w*N(a)*fext_gp(1);
+     Fext_l(2,a) += w*N(a)*fext_gp(2);
+
+6. Code/Source/solver/sv_struct.cpp -- struct_2d (~lines 345-473)
+   Same pattern as step 5, 2D indices only (i,j, no k).
+
+7. Code/Source/solver/sv_struct.cpp -- construct_dsolid (lines 184-341)
+   - Line 229: declare `Array<double> Fint_l(nsd,eNoN), Fext_l(nsd,eNoN);`
+     alongside lR.
+   - Line 290 (`lR = 0.0; lK = 0.0;`): also `Fint_l = 0.0; Fext_l = 0.0;`
+     (zeroed once per element, accumulated across that element's Gauss-point
+     calls to struct_3d/struct_2d, exactly like lR).
+   - Lines 309/323: pass Fint_l, Fext_l as trailing args.
+   - After the g-loop (after line 337), before
+     `eq.linear_algebra->assemble(...)` (line 339), scatter directly using
+     the already-declared ptr(a) map (same style as the existing pSa/pSn
+     scatter at lines 328-336, but UNWEIGHTED -- force is an assembled sum,
+     not an area-weighted average):
+
+     for (int a = 0; a < eNoN; a++) {
+       int Ac = ptr(a);
+       for (int i = 0; i < nsd; i++) {
+         com_mod.Fint_g(i,Ac) += Fint_l(i,a);
+         com_mod.Fext_g(i,Ac) += Fext_l(i,a);
+       }
+     }
+
+     This is inherently scoped to phys_struct since construct_dsolid already
+     `continue`s past any non-phys_struct domain (line 238-240).
+
+8. Code/Source/solver/eq_assem.cpp -- boundary scatter (no signature changes needed)
+   Confirmed both boundary functions leave lR holding purely
+   -External_local when cPhys == phys_struct (nothing else writes into lR
+   for that element in these functions), so no new accumulator params are
+   needed -- just read lR back out after the g-loop.
+
+   a) b_assem_neu_bc (lines 31-149, shared across many physics via
+      l_elas::b_l_elas): after the g-loop (after line 145), before
+      assemble(...) (line 147):
+
+      if (cPhys == EquationType::phys_struct) {
+        for (int a = 0; a < eNoN; a++) {
+          int Ac = ptr(a);
+          for (int i = 0; i < nsd; i++) {
+            com_mod.Fext_g(i,Ac) -= lR(i,a);
+          }
+        }
+      }
+
+   b) b_neu_folw_p (lines 163-284): after the g-loop (after line 276),
+      before the existing
+      `if (cPhys == phys_ustruct) {...} else if (cPhys == phys_struct) {...}`
+      dispatch (lines 278-282), add the identical guarded block (using the
+      ptr/lR/nsd already in scope).
+
+9. Code/Source/solver/consts.h -- new enum values
+   Next free slots confirmed against current state
+   (outGrp_strainEnergy = 532, out_strainEnergy = 566):
+
+   outGrp_intForce = 533,
+   outGrp_extForce = 534,
+   ...
+   out_extForce = 565,
+   out_intForce = 564
+
+10. Code/Source/solver/set_output_props.h -- map entries
+    Vector outputs (length nsd, unlike the scalar Strain_energy):
+
+    {OutputNameType::out_intForce, std::make_tuple(OutputNameType::outGrp_intForce, 0, nsd, "Internal_force") },
+    {OutputNameType::out_extForce, std::make_tuple(OutputNameType::outGrp_extForce, 0, nsd, "External_force") },
+
+11. Code/Source/solver/set_equation_props.h -- struct's outPuts list
+    Bump `nDOP = {18, 2, 0, 0};` -> `{20, 2, 0, 0};` and add both new types
+    to the non-prestress outPuts list (~line 559-577).
+
+12. Code/Source/solver/vtk_xml.cpp -- write_vtus() new case blocks
+    Add near the outGrp_ionicState case (~line 1143), following its exact
+    style (direct dedicated-array indexing, no +s DOF offset -- confirmed
+    this differs from outGrp_A/Y/D, which index the monolithic solution
+    array):
+
+    case OutputNameType::outGrp_intForce:
+      for (int a = 0; a < msh.nNo; a++) {
+        int Ac = msh.gN(a);
+        for (int i = 0; i < l; i++) {
+          d[iM].x(i+is,a) = com_mod.Fint_g(i,Ac);
+        }
+      }
+    break;
+
+    case OutputNameType::outGrp_extForce:
+      for (int a = 0; a < msh.nNo; a++) {
+        int Ac = msh.gN(a);
+        for (int i = 0; i < l; i++) {
+          d[iM].x(i+is,a) = com_mod.Fext_g(i,Ac);
+        }
+      }
+    break;
+
+13. Code/Source/solver/Integrator.cpp -- zero + parallel-sum (no averaging)
+    Zero, in initiator() next to the pstEq block (lines 745-749), using the
+    already-in-scope eq (line 676):
+
+    if (eq.phys == EquationType::phys_struct) {
+      com_mod.Fint_g = 0.0;
+      com_mod.Fext_g = 0.0;
+    }
+
+    This runs once per Newton iteration, before that iteration's
+    assemble_equations() (volumetric, step 7) and apply_boundary_conditions()
+    (boundary, step 8) both run, so both contributions land in the same
+    freshly-zeroed arrays.
+
+    Sum across MPI ranks, in corrector() next to the pstEq block
+    (lines 912-925), using the already-in-scope eq (line 795):
+
+    if (eq.phys == EquationType::phys_struct) {
+      all_fun::commu(com_mod, com_mod.Fint_g);
+      all_fun::commu(com_mod, com_mod.Fext_g);
+    }
+
+    Deliberately NO division/normalization step afterward (unlike
+    pSn(i,a) /= pSa(a)) -- force is extensive, so the raw MPI-summed value
+    is already the correct final nodal force. This runs after both assembly
+    steps, every Newton iteration; only the last (converged) iteration's
+    post-commu values remain when the time step's loop exits, which is what
+    gets read by output::output_result/write_vtus afterward.
+
+WHY THIS IS SAFE / CORRECTLY SCOPED
+------------------------------------
+- Scoping to phys_struct is enforced independently in three places:
+  construct_dsolid's own per-domain phys_struct check, the
+  cPhys == phys_struct guards added in both eq_assem.cpp boundary functions
+  (which are shared with other physics), and the eq.phys == phys_struct
+  guards in Integrator.cpp. phys_ustruct/FSI/shell paths are untouched.
+- Fint_g/Fext_g are populated by direct local-to-global scatter (bypassing
+  eq.linear_algebra->assemble()'s backend-specific Dirichlet-elimination
+  machinery entirely, same as the existing pSn/pSa prestress pattern), so
+  they retain the raw, pre-elimination values -- meaning Internal - External
+  correctly reads as the reaction force at Dirichlet-constrained nodes, not
+  silently zero.
+- The existing ud computation in struct_3d/struct_2d is left completely
+  untouched (only new parallel udi/fext_gp locals are added); lR/lK and
+  therefore the actual Newton solve are numerically unaffected by this
+  change.
+
+VERIFICATION
+------------
+1. Rebuild (cd build/svMultiPhysics-build && make svmultiphysics -j4, as
+   done for the earlier Strain_energy addition) and confirm no compile
+   errors.
+2. Run an existing struct test case (e.g. one of the tests/ cases using
+   phys_struct) with Internal_force/External_force requested in
+   <Output type="Spatial">, and in ParaView/a quick script:
+   - Confirm Internal_force ~= External_force (small relative residual,
+     matching solver's Newton tolerance) at free nodes.
+   - Confirm the imbalance at Dirichlet-fixed nodes sums to a physically
+     sensible net reaction force (e.g., for the LV case, roughly balancing
+     the total applied endocardial pressure force).
+3. If a parallel (multi-rank MPI) test case is available, re-run the same
+   check under mpirun -np N to confirm all_fun::commu() is correctly
+   combining partition-boundary contributions (values at partition-boundary
+   nodes should match the serial run).

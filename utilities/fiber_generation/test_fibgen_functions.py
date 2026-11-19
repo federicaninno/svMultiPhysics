@@ -10,7 +10,8 @@ import unittest
 import numpy as np
 import sys
 import os
-from fiber_generation.fiber_generator import FibGen
+from types import SimpleNamespace
+from fiber_generation.fiber_generator import FibGen, FibGenBayerSingle
 
 
 class TestFibGen(unittest.TestCase):
@@ -591,6 +592,46 @@ class TestFibGenEdgeCases(unittest.TestCase):
         
         self.assertEqual(Q_interp.shape, (1, 3, 3))
         self.assertTrue(np.allclose(Q_interp[0].T @ Q_interp[0], np.eye(3), atol=1e-9))
+
+
+class TestFibGenBayerSingle(unittest.TestCase):
+    """Test cases for the single-ventricle Bayer fiber generator."""
+
+    def setUp(self):
+        """Set up a wall with eL = z, eT = x (endo to epi), so eC = y."""
+        self.fibgen = FibGenBayerSingle()
+        self.t = np.linspace(0.0, 1.0, 11)
+        n = len(self.t)
+        self.fibgen.mesh = SimpleNamespace(cell_data={})
+        self.fibgen.lap = {'Trans_EPI': self.t}
+        self.fibgen.grad = {'Trans_EPI': np.tile([1.0, 0.0, 0.0], (n, 1)),
+                            'Long_AB': np.tile([0.0, 0.0, 1.0], (n, 1))}
+        self.params = {"ALFA_END": 60.0, "ALFA_EPI": -60.0, "BETA_END": -20.0, "BETA_EPI": 20.0}
+
+    def test_orthonormality(self):
+        """Test that fiber, sheet-normal and sheet form an orthonormal basis."""
+        F, S, T = self.fibgen.generate_fibers(self.params)
+        Q = np.stack([F, S, T], axis=-1)
+        for i in range(len(self.t)):
+            self.assertTrue(np.allclose(Q[i].T @ Q[i], np.eye(3), atol=1e-9))
+
+    def test_endo_epi_bases(self):
+        """Test that the basis matches the rotated endo/epi bases at the walls."""
+        F, S, T = self.fibgen.generate_fibers(self.params)
+        Q = np.stack([F, S, T], axis=-1)
+        p = {k: np.deg2rad(v) for k, v in self.params.items()}
+        Q0 = self.fibgen.axis(self.fibgen.grad['Long_AB'], self.fibgen.grad['Trans_EPI'])
+        Q_endo = self.fibgen.orient_matrix(Q0, p['ALFA_END'], p['BETA_END'])
+        Q_epi = self.fibgen.orient_matrix(Q0, p['ALFA_EPI'], p['BETA_EPI'])
+        self.assertTrue(np.allclose(Q[0], Q_endo[0], atol=1e-9))
+        self.assertTrue(np.allclose(Q[-1], Q_epi[-1], atol=1e-9))
+
+    def test_linear_helix_angle(self):
+        """Test that the helix angle varies linearly through the wall (beta = 0)."""
+        params = {"ALFA_END": 60.0, "ALFA_EPI": -60.0, "BETA_END": 0.0, "BETA_EPI": 0.0}
+        F, _, _ = self.fibgen.generate_fibers(params)
+        helix = np.rad2deg(np.arctan2(F[:, 2], F[:, 1]))
+        self.assertTrue(np.allclose(helix, 60.0 - 120.0 * self.t, atol=1e-6))
 
 
 if __name__ == '__main__':

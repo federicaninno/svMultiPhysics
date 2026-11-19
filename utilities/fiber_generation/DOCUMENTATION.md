@@ -324,6 +324,27 @@ When running the original implementation, we observed the resulting fibers showe
       ![Illustration of beta angle effect at endocardium](example/biv_truncated/flipping.png)
 
 
+## Single-ventricle variant
+
+For truncated geometries of a single ventricle (LV or RV), `FibGenBayerSingle` (method `"bayer_single"`, or `main_bayer.py --single-ventricle`) adapts the Bayer method. Without a second ventricle there is no septum, so the interventricular coordinate $d$, the septum angles and the LV/RV interpolation (steps 1-3 above) are dropped.
+
+**Required boundaries**: epicardium, endocardium (`SurfaceName.ENDOCARDIUM`), base and apex.
+
+**Required Laplace fields**: $\phi_{\text{epi}}$ (endo → epi) and $\phi_{\text{AB}}$ (apex → base).
+
+**Algorithm steps**:
+
+1. **Construct basis**: $\mathbf{Q}^0 = \text{axis}(\nabla\phi_{\text{AB}}, \nabla\phi_{\text{epi}})$
+2. **Rotate by endocardial and epicardial angles**:
+   - $\mathbf{Q}_{\text{endo}} = \text{orient\_matrix}(\mathbf{Q}^0, \alpha_{\text{endo}}, \beta_{\text{endo}})$
+   - $\mathbf{Q}_{\text{epi}} = \text{orient\_matrix}(\mathbf{Q}^0, \alpha_{\text{epi}}, \beta_{\text{epi}})$
+3. **Interpolate final basis**: $\mathbf{Q} = \text{slerp}(\mathbf{Q}_{\text{endo}}, \mathbf{Q}_{\text{epi}}, \phi_{\text{epi}})$
+
+Note that, unlike step 5 of the biventricular algorithm, $\mathbf{Q}_{\text{epi}}$ is rotated by the constant epicardial angles rather than by the wall angles $\alpha_w(\phi_{\text{epi}})$, $\beta_w(\phi_{\text{epi}})$. In the biventricular algorithm the angle is effectively applied twice (once in $\alpha_w$ and once in the interpolation), so in the free wall the helix angle varies nonlinearly through the wall (for $\beta = 0$, $\alpha = \alpha_{\text{endo}} + \phi_{\text{epi}}^2(\alpha_{\text{epi}} - \alpha_{\text{endo}})$). In the single-ventricle variant the helix angle varies linearly, $\alpha = \alpha_{\text{endo}}(1 - \phi_{\text{epi}}) + \alpha_{\text{epi}}\phi_{\text{epi}}$ (exactly for $\beta = 0$), as in the Doste method and most rule-based single-ventricle models.
+
+Since the transmural direction always points from endo to epi, the same angles give the same handedness for an LV or an RV.
+
+
 # Doste Method
 
 The Doste et al. (2019) method extends the fiber generation to biventricular geometries with **outflow tracts**, requiring valve surfaces to be explicitly defined.

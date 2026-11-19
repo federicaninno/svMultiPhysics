@@ -20,6 +20,7 @@ class SurfaceName(Enum):
         EPICARDIUM_APEX: Epicardial apex surface
         ENDOCARDIUM_LV: Left ventricle endocardial surface
         ENDOCARDIUM_RV: Right ventricle endocardial surface
+        ENDOCARDIUM: Endocardial surface of a single ventricle (LV or RV)
         MITRAL_VALVE: Mitral valve surface
         AORTIC_VALVE: Aortic valve surface
         TRICUSPID_VALVE: Tricuspid valve surface
@@ -30,6 +31,7 @@ class SurfaceName(Enum):
     EPICARDIUM_APEX = "epi_apex"
     ENDOCARDIUM_LV = "lv_endocardium"
     ENDOCARDIUM_RV = "rv_endocardium"
+    ENDOCARDIUM = "endocardium"
     MITRAL_VALVE = "mitral_valve"
     AORTIC_VALVE = "aortic_valve"
     TRICUSPID_VALVE = "tricuspid_valve"
@@ -52,6 +54,7 @@ class SurfaceName(Enum):
             'epi_apex': cls.EPICARDIUM_APEX,
             'lv_endocardium': cls.ENDOCARDIUM_LV,
             'rv_endocardium': cls.ENDOCARDIUM_RV,
+            'endocardium': cls.ENDOCARDIUM,
             'mitral_valve': cls.MITRAL_VALVE,
             'aortic_valve': cls.AORTIC_VALVE,
             'tricuspid_valve': cls.TRICUSPID_VALVE,
@@ -64,15 +67,17 @@ class SurfaceName(Enum):
         """Get required surface names for a given method.
         
         Args:
-            method: Either "bayer" or "doste".
-            
+            method: One of "bayer", "bayer_single" or "doste".
+
         Returns:
             set: Set of required SurfaceName enum values.
         """
         if method == "bayer":
             return {cls.EPICARDIUM, cls.ENDOCARDIUM_LV, cls.ENDOCARDIUM_RV, cls.BASE, cls.EPICARDIUM_APEX}
+        elif method == "bayer_single":
+            return {cls.EPICARDIUM, cls.ENDOCARDIUM, cls.BASE, cls.EPICARDIUM_APEX}
         elif method == "doste":
-            return {cls.EPICARDIUM, cls.ENDOCARDIUM_LV, cls.ENDOCARDIUM_RV, cls.EPICARDIUM_APEX, 
+            return {cls.EPICARDIUM, cls.ENDOCARDIUM_LV, cls.ENDOCARDIUM_RV, cls.EPICARDIUM_APEX,
                    cls.MITRAL_VALVE, cls.AORTIC_VALVE, cls.TRICUSPID_VALVE, cls.PULMONARY_VALVE}
         else:
-            raise ValueError(f"Unknown method: {method}. Use 'bayer' or 'doste'.")
+            raise ValueError(f"Unknown method: {method}. Use 'bayer', 'bayer_single' or 'doste'.")

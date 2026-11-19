@@ -8,20 +8,21 @@ orientations for biventricular heart models using Laplace-Dirichlet
 rule-based methods.
 
 Modules:
-    fiber_generator: Core fiber generation classes (FibGen, FibGenBayer, FibGenDoste)
+    fiber_generator: Core fiber generation classes (FibGen, FibGenBayer, FibGenBayerSingle, FibGenDoste)
     laplace_solver: Laplace-Dirichlet equation solver
     surface_names: Surface name definitions for heart geometry
     surface_utils: Utility functions for surface operations
     quat_utils: Quaternion utilities for rotation operations
 """
 
-from fiber_generation.fiber_generator import FibGen, FibGenBayer, FibGenDoste
+from fiber_generation.fiber_generator import FibGen, FibGenBayer, FibGenBayerSingle, FibGenDoste
 from fiber_generation.laplace_solver import LaplaceSolver
 from fiber_generation.surface_names import SurfaceName
 
 __all__ = [
     'FibGen',
     'FibGenBayer',
+    'FibGenBayerSingle',
     'FibGenDoste',
     'LaplaceSolver',
     'SurfaceName',

@@ -21,6 +21,8 @@ The `main_bayer.py` and `main_doste.py` are scripts to run both methods in the g
 
 Note that the Doste methods needs a geometry with outflow tracts to be run (each valve needs to be defined as a separated surface). Bayer can be run in any biventricular geometry.
 
+For a single ventricle geometry (LV or RV), run `main_bayer.py --single-ventricle` (or set `single_ventricle = True` in the script). Only the epicardium, base and endocardium (`ENDO.vtp`) surfaces are needed. In this variant the helix and transverse angles vary linearly through the wall; see [DOCUMENTATION.md](DOCUMENTATION.md#single-ventricle-variant).
+
 
 ### Documentation
 For details ont the implementation and an study of the results, see:

@@ -7,8 +7,8 @@
 This module provides classes to generate myocardial fiber orientations for
 biventricular heart models using Laplace-Dirichlet rule-based methods.
 
-Supports both:
-    - Bayer et al. (2012): Truncated BiV geometry
+Supports:
+    - Bayer et al. (2012): Truncated BiV or single-ventricle geometry
     - Doste et al. (2019): BiV geometry with outflow tracts
 
 References:
@@ -520,6 +520,85 @@ class FibGenBayer(FibGen):
 
         alfa = alfaS * (1 - self.lap['Trans_EPI']) + alfaW * self.lap['Trans_EPI']
         beta = betaS * (1 - self.lap['Trans_EPI']) + betaW * self.lap['Trans_EPI']
+
+        return alfa, beta
+
+
+class FibGenBayerSingle(FibGenBayer):
+    """Fiber generator for a single ventricle (LV or RV), based on Bayer et al. (2012).
+
+    Suitable for truncated single-ventricle geometries. Uses the Laplace fields
+    and basis construction of the Bayer method, but without a second ventricle
+    there is no septum and no LV/RV blending: a single local basis is built from
+    the apex-to-base and endo-to-epi gradients, rotated with the endocardial
+    and epicardial angles, and interpolated transmurally.
+
+    Note: the helix and transverse angles vary linearly with the transmural
+    coordinate (as in the Doste method). This differs from the free wall of
+    FibGenBayer, where the epicardial basis is already rotated by the
+    interpolated wall angle before the endo-to-epi interpolation, giving a
+    nonlinear transmural profile.
+    https://doi.org/10.1007/s10439-012-0593-5
+    """
+
+    # Field names in Laplace solution
+    FIELD_NAMES = ['Trans_EPI', 'Long_AB']
+
+    def generate_fibers(self, params, correct_slerp=False):
+        """Generate fiber directions using the Bayer method on a single ventricle.
+
+        Args:
+            params: Dictionary with keys:
+                - ALFA_END: Endocardial helix angle (degrees)
+                - ALFA_EPI: Epicardial helix angle (degrees)
+                - BETA_END: Endocardial transverse angle (degrees)
+                - BETA_EPI: Epicardial transverse angle (degrees)
+            correct_slerp: If True, use quaternion correction for SLERP interpolation.
+                Defaults to False.
+
+        Returns:
+            tuple: (F, S, T) fiber, sheet, and normal directions (N, 3) each.
+        """
+        if self.lap is None or self.grad is None:
+            raise ValueError("Must call load_laplace_results() first")
+
+        # Convert parameters to radians (consistent with Doste method)
+        params = {k: np.deg2rad(v) for k, v in params.items()}
+
+        print("   Computing fiber directions at cells")
+
+        # Local basis, with the transmural direction pointing from endo to epi
+        Q0 = self.axis(self.grad['Long_AB'], self.grad['Trans_EPI'])
+
+        # Rotate the basis with the endocardial and epicardial angles
+        Q_END = self.orient_matrix(Q0, params['ALFA_END'], params['BETA_END'])
+        Q_EPI = self.orient_matrix(Q0, params['ALFA_EPI'], params['BETA_EPI'])
+
+        # Interpolate from endo to epi
+        FST = self.interpolate_basis(Q_END, Q_EPI, self.lap['Trans_EPI'], correct_slerp=correct_slerp)
+
+        F = FST[:, :, 0]  # Fiber direction
+        S = FST[:, :, 1]  # Sheet normal
+        T = FST[:, :, 2]  # Sheet direction
+
+        self.mesh.cell_data['fiber'] = F
+        self.mesh.cell_data['sheet-normal'] = S
+        self.mesh.cell_data['sheet'] = T
+
+        return F, S, T
+
+    def get_angle_fields(self, params):
+        """Compute global alpha and beta angle fields.
+
+        Args:
+            params: Dictionary with angle parameters (in degrees or radians).
+
+        Returns:
+            tuple: (alfa, beta) arrays of helix and transverse angles at each cell.
+        """
+        # Wall angles (interpolated from endo to epi)
+        alfa = self.calculate_angle(self.lap['Trans_EPI'], params['ALFA_END'], params['ALFA_EPI'])
+        beta = self.calculate_angle(self.lap['Trans_EPI'], params['BETA_END'], params['BETA_EPI'])
 
         return alfa, beta
 

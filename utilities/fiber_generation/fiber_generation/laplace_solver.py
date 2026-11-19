@@ -8,8 +8,8 @@ This module provides the LaplaceSolver class that generates XML configuration
 files and runs the svMultiPhysics Laplace-Dirichlet solver for computing
 scalar fields needed for fiber direction generation.
 
-Supports both:
-    - Bayer et al. (2012): Truncated BiV geometry
+Supports:
+    - Bayer et al. (2012): Truncated BiV or single-ventricle geometry
     - Doste et al. (2019): BiV geometry with outflow tracts
 """
 
@@ -58,6 +58,7 @@ class LaplaceSolver:
             mesh_path: Path to the volumetric mesh file (.vtu).
             surface_paths: Dictionary mapping SurfaceName enum values to full file paths.
                 For Bayer method, required: SurfaceName.EPICARDIUM, ENDOCARDIUM_LV, ENDOCARDIUM_RV, BASE, EPICARDIUM_APEX
+                For single-ventricle Bayer method, required: SurfaceName.EPICARDIUM, ENDOCARDIUM, BASE, EPICARDIUM_APEX
                 For Doste method, required: SurfaceName.EPICARDIUM, ENDOCARDIUM_LV, ENDOCARDIUM_RV, EPICARDIUM_APEX, MITRAL_VALVE, AORTIC_VALVE, TRICUSPID_VALVE, PULMONARY_VALVE
             exec_svmultiphysics: Command to execute svMultiPhysics (e.g., "svmultiphysics ").
             
@@ -246,7 +247,26 @@ class LaplaceSolver:
                 ("epi_apex", 0.0),
             ]),
         ]
-    
+
+    def _get_bayer_single_equations(self):
+        """Get equation definitions for the single-ventricle Bayer method.
+
+        Returns:
+            list: List of (alias, boundary_conditions) tuples.
+        """
+        return [
+            # Trans_EPI: Transmural field (epicardium=1, endo=0)
+            ("Trans_EPI", [
+                ("epicardium", 1.0),
+                ("endocardium", 0.0),
+            ]),
+            # Long_AB: Apex-to-base field (base=1, apex=0)
+            ("Long_AB", [
+                ("base", 1.0),
+                ("epi_apex", 0.0),
+            ]),
+        ]
+
     def _get_doste_equations(self):
         """Get equation definitions for the Doste method.
         
@@ -319,17 +339,19 @@ class LaplaceSolver:
         """Get the list of face names for a given method.
         
         Args:
-            method: Either "bayer" or "doste".
-            
+            method: One of "bayer", "bayer_single" or "doste".
+
         Returns:
             list: List of face names.
         """
         if method == "bayer":
             return ["epicardium", "base", "epi_apex", "lv_endocardium", "rv_endocardium"]
+        elif method == "bayer_single":
+            return ["epicardium", "base", "epi_apex", "endocardium"]
         elif method == "doste":
             return ["epicardium", "mitral_valve", "aortic_valve", "tricuspid_valve", "pulmonary_valve", "epi_apex", "lv_endocardium", "rv_endocardium"]
         else:
-            raise ValueError(f"Unknown method: {method}. Use 'bayer' or 'doste'.")
+            raise ValueError(f"Unknown method: {method}. Use 'bayer', 'bayer_single' or 'doste'.")
     
     def _prettify_xml(self, elem):
         """Convert an XML element to a prettified string.
@@ -348,9 +370,9 @@ class LaplaceSolver:
         """Generate the svMultiPhysics XML configuration file.
         
         Args:
-            method: Either "bayer" or "doste".
+            method: One of "bayer", "bayer_single" or "doste".
             output_dir: Directory to save solver results.
-            
+
         Returns:
             str: Path to the generated XML file.
         """
@@ -367,10 +389,12 @@ class LaplaceSolver:
         # Add equations based on method
         if method == "bayer":
             equations = self._get_bayer_equations()
+        elif method == "bayer_single":
+            equations = self._get_bayer_single_equations()
         elif method == "doste":
             equations = self._get_doste_equations()
         else:
-            raise ValueError(f"Unknown method: {method}. Use 'bayer' or 'doste'.")
+            raise ValueError(f"Unknown method: {method}. Use 'bayer', 'bayer_single' or 'doste'.")
         
         for alias, bcs in equations:
             root.append(self._create_equation(alias, bcs))
@@ -400,9 +424,9 @@ class LaplaceSolver:
         and executes the solver.
         
         Args:
-            method: Either "bayer" or "doste".
+            method: One of "bayer", "bayer_single" or "doste".
             output_dir: Directory to save solver results.
-            
+
         Returns:
             str: Path to the result file containing Laplace solutions.
             
@@ -433,8 +457,8 @@ class LaplaceSolver:
         """Validate that all required surfaces are provided.
         
         Args:
-            method: Either "bayer" or "doste".
-            
+            method: One of "bayer", "bayer_single" or "doste".
+
         Raises:
             ValueError: If required surfaces are missing.
         """

@@ -1,0 +1,108 @@
+{
+  "case_name": "PSTRAIN4",
+  "output_dir": "cases/PSTRAIN4",
+
+  "mesh": {
+    "_comment_": "Paths are relative to this file. The mesh and surfaces need GlobalNodeID (and GlobalElementID). scale_factor converts the mesh coordinates to metres.",
+    "volume": "~/Downloads/PSTRAIN4_LV_mesh/mesh-complete.mesh.vtu",
+    "endo": "~/Downloads/PSTRAIN4_LV_mesh/mesh-surfaces/endo.vtp",
+    "epi": "~/Downloads/PSTRAIN4_LV_mesh/mesh-surfaces/epi.vtp",
+    "base": "~/Downloads/PSTRAIN4_LV_mesh/mesh-surfaces/base.vtp",
+    "scale_factor": 1.0,
+    "_comment_element_order_": "1: linear tetrahedra (as in the input mesh). 2: the case is converted to quadratic tetrahedra (tet10), which allows a much larger volumetric penalty without locking.",
+    "element_order": 1
+  },
+
+  "executables": {
+    "svmultiphysics": "~/svMultiPhysics/build-main/svMultiPhysics-build/bin/svmultiphysics",
+    "svzerod_library": "~/svZeroDSolver/build/src/interface/libsvzero_interface.dylib"
+  },
+
+  "_comment_linear_solver_": "fsils (diagonal preconditioner) works for linear and quadratic tetrahedra, slowly for quadratic ones (run them on a cluster). petsc writes the options below (algebraic multigrid) to petsc_options.txt and needs svMultiPhysics built with PETSc, but svMultiPhysics' PETSc interface leaves the cap out of the 3D-0D coupling term, so Newton stalls: use fsils until that is fixed. linear_solver_tolerance is the relative tolerance of GMRES; Newton does not need exact linear solves, and 1e-10 made quadratic runs several times slower.",
+  "linear_solver": "fsils",
+  "linear_solver_tolerance": 1e-6,
+  "petsc_options": [
+    "-ksp_type gmres",
+    "-ksp_gmres_restart 200",
+    "-pc_type gamg",
+    "-pc_gamg_agg_nsmooths 1",
+    "-mat_type aij",
+    "-ksp_converged_reason"
+  ],
+
+  "fibers": {
+    "_comment_": "Helix (alpha) and transverse (beta) angles in degrees, varying linearly from endo to epi.",
+    "alpha_endo": 60.0,
+    "alpha_epi": -60.0,
+    "beta_endo": 0.0,
+    "beta_epi": 0.0
+  },
+
+  "_comment_prestress_": "With use_prestress, the mesh (image) geometry is in equilibrium with end_diastolic_pressure_mmHg (run prestress.xml and extract_prestress.py first; slow to converge with fsils). Without it, the mesh geometry is stress-free and the simulation starts with no LV pressure, so end_diastolic_pressure_mmHg must be 0.",
+  "use_prestress": false,
+  "end_diastolic_pressure_mmHg": 0.0,
+  "prestress_time_steps": 20,
+  "prestress_time_step_ms": 10.0,
+
+  "timing": {
+    "_comment_": "Fractions are of the cardiac period. The cycle starts at end-diastole (the mesh geometry): ventricular active stress, then filling and atrial systole at the end of the cycle.",
+    "heart_rate_bpm": 104.0,
+    "n_cycles": 0.5,
+    "time_step_ms": 1.0,
+    "save_every_ms": 10.0,
+    "active_stress_start": 0.0,
+    "active_stress_duration": 0.45,
+    "atrial_systole_start": 0.8,
+    "atrial_systole_duration": 0.2
+  },
+
+  "active_stress": {
+    "_comment_": "Peak active tension along the fibers; the main parameter to tune the ejection fraction. The ejection fraction responds weakly (PSTRAIN4: 250 kPa gives 23 %, 450 kPa about 30 %), as it is also limited by the circulation model.",
+    "peak_kPa": 450.0
+  },
+
+  "material": {
+    "_comment_": "Holzapfel-Ogden (modified anisotropy), Holzapfel & Ogden (2009) Table 1. Stiffnesses in kPa.",
+    "a_kPa": 0.059,
+    "b": 8.023,
+    "a4f_kPa": 18.472,
+    "b4f": 16.026,
+    "a4s_kPa": 2.481,
+    "b4s": 11.12,
+    "afs_kPa": 0.216,
+    "bfs": 11.436,
+    "penalty_kPa": 10000.0
+  },
+
+  "infarct": {
+    "_comment_": "Synthetic infarct: the elements whose centroid is inside the sphere do not contract and are stiffer (scar). center and radius are in mesh coordinates, same units as the mesh file (here metres); pick the center in ParaView on the mesh. stiffness_factor scales the passive stiffnesses a, a4f, a4s and afs. The region is written to mesh/domains.vtu (DOMAIN_ID 1: healthy, 2: infarct).",
+    "enabled": false,
+    "center": [-0.0162, 0.0018, -0.035],
+    "radius": 0.018,
+    "stiffness_factor": 10.0
+  },
+
+  "boundary_conditions": {
+    "_comment_": "Robin springs (kPa/mm = MPa/m) and dampers (MPa*ms/m). The base spring holds the free rim of the open cavity (the cap transmits no force); 0.1 MPa/m leaves it floppy, much stiffer springs stop the base from descending.",
+    "_comment_epi_": "Pericardium: epi_stiffness acts along the normal only, so the wall can slide along the epicardium (Pfaller et al. 2019). The cap does not transmit the cavity pressure, so this spring is what holds the apex against it: 100 MPa/m keeps the apex still and lets the base descend; 10 MPa/m lets the whole ventricle slide towards the apex by about 4 mm. Optionally, epi_stiffness_free_height (fraction of the apex-to-base height) makes it the stiffness at the apex, decreasing linearly to zero at that height (written to mesh/mesh-surfaces/epi_spring.vtp; linear tetrahedra only); in a model of the LV alone this made the apex slide more, not less.",
+    "epi_stiffness": 100.0,
+    "epi_stiffness_free_height": null,
+    "epi_damping": 5.0,
+    "base_stiffness": 1.0,
+    "base_damping": 5.0
+  },
+
+  "circulation": {
+    "_comment_": "Open-loop model of Brown et al. (2024), CMAME 421:116764: atrial pressure, mitral and aortic valves, proximal CRL and distal RC. Clinical units.",
+    "_comment_atrium_": "The atrial baseline must not exceed the initial LV pressure, otherwise the LV fills before contracting.",
+    "atrial_pressure_baseline_mmHg": 0.0,
+    "atrial_pressure_amplitude_mmHg": 8.0,
+    "Rp_mmHg_s_per_mL": 0.0548,
+    "Cp_mL_per_mmHg": 1.027,
+    "Lp_mmHg_s2_per_mL": 9.75e-4,
+    "Rd_mmHg_s_per_mL": 0.750,
+    "Cd_mL_per_mmHg": 1.160,
+    "Pd_mmHg": 0.0,
+    "initial_arterial_pressure_mmHg": 61.8
+  }
+}
